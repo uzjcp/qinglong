@@ -245,8 +245,8 @@ reload_qinglong() {
   fi
 
   if [[ "$reload_target" == 'data' ]]; then
-    rm -rf ${dir_root}/data
-    cp -rf ${dir_tmp}/data ${dir_root}/
+    rm -rf ${dir_root}/data/*
+    mv -f ${dir_tmp}/data/* ${dir_root}/data/
   fi
 
   reload_pm2

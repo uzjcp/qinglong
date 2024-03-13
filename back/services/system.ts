@@ -326,7 +326,7 @@ export default class SystemService {
     return { code: 200 };
   }
 
-  public async reloadSystem(target: 'system' | 'data') {
+  public async reloadSystem(target?: 'system' | 'data') {
     const cmd = `real_time=true ql reload ${target || ''}`;
     const cp = spawn(cmd, { shell: '/bin/bash' });
     cp.unref();

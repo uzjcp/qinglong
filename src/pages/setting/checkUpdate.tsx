@@ -220,7 +220,7 @@ const CheckUpdate = ({ systemInfo }: any) => {
       </Button>
       <Button
         type="primary"
-        onClick={() => reloadSystem('system')}
+        onClick={() => reloadSystem('reload')}
         style={{ marginLeft: 8 }}
       >
         {intl.get('重新启动')}

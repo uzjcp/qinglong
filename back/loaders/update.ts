@@ -23,6 +23,20 @@ export default ({ app }: { app: Application }) => {
   );
 
   app.put(
+    '/api/reload',
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const systemService = Container.get(SystemService);
+        const result = await systemService.reloadSystem();
+        res.send(result);
+      } catch (e) {
+        Logger.error('🔥 error: %o', e);
+        return next(e);
+      }
+    },
+  );
+
+  app.put(
     '/api/system',
     async (req: Request, res: Response, next: NextFunction) => {
       try {
@@ -35,6 +49,7 @@ export default ({ app }: { app: Application }) => {
       }
     },
   );
+
   app.put(
     '/api/data',
     async (req: Request, res: Response, next: NextFunction) => {
