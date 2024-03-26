@@ -4,9 +4,9 @@ import cors from 'cors';
 import { Application, NextFunction, Request, Response } from 'express';
 import jwt from 'express-jwt';
 import Container from 'typedi';
-import Logger from './logger';
 import config from '../config';
 import SystemService from '../services/system';
+import Logger from './logger';
 
 export default ({ app }: { app: Application }) => {
   app.set('trust proxy', 'loopback');

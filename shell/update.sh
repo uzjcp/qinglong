@@ -231,16 +231,19 @@ usage() {
 }
 
 reload_qinglong() {
+  delete_pm2
+
   local reload_target="${1}"
   local primary_branch="master"
-  if [[ "${QL_BRANCH}" == "develop" ]]; then
-    primary_branch="develop"
+  if [[ "${QL_BRANCH}" == "develop" ]] || [[ "${QL_BRANCH}" == "debian" ]] || [[ "${QL_BRANCH}" == "debian-dev" ]]; then
+    primary_branch="${QL_BRANCH}"
   fi
 
   if [[ "$reload_target" == 'system' ]]; then
-    cp -rf ${dir_tmp}/qinglong-${primary_branch}/* ${dir_root}/
+    rm -rf ${dir_root}/back ${dir_root}/cli ${dir_root}/docker ${dir_root}/sample ${dir_root}/shell ${dir_root}/src
+    mv -f ${dir_tmp}/qinglong-${primary_branch}/* ${dir_root}/
     rm -rf $dir_static/*
-    cp -rf ${dir_tmp}/qinglong-static-${primary_branch}/* ${dir_static}/
+    mv -f ${dir_tmp}/qinglong-static-${primary_branch}/* ${dir_static}/
     cp -f $file_config_sample $dir_config/config.sample.sh
   fi
 
@@ -258,7 +261,7 @@ update_qinglong() {
   local mirror="gitee"
   local downloadQLUrl="https://gitee.com/whyour/qinglong/repository/archive"
   local downloadStaticUrl="https://gitee.com/whyour/qinglong-static/repository/archive"
-  local githubStatus=$(curl -s -m 2 -IL "https://google.com" | grep 200)
+  local githubStatus=$(curl -s --noproxy "*" -m 2 -IL "https://google.com" | grep 200)
   if [[ ! -z $githubStatus ]]; then
     mirror="github"
     downloadQLUrl="https://github.com/whyour/qinglong/archive/refs/heads"
@@ -310,9 +313,12 @@ check_update_dep() {
     echo -e "更新包下载成功..."
 
     if [[ "$needRestart" == 'true' ]]; then
-      cp -rf ${dir_tmp}/qinglong-${primary_branch}/* ${dir_root}/
+      delete_pm2
+
+      rm -rf ${dir_root}/back ${dir_root}/cli ${dir_root}/docker ${dir_root}/sample ${dir_root}/shell ${dir_root}/src
+      mv -f ${dir_tmp}/qinglong-${primary_branch}/* ${dir_root}/
       rm -rf $dir_static/*
-      cp -rf ${dir_tmp}/qinglong-static-${primary_branch}/* ${dir_static}/
+      mv -f ${dir_tmp}/qinglong-static-${primary_branch}/* ${dir_static}/
       cp -f $file_config_sample $dir_config/config.sample.sh
 
       reload_pm2
