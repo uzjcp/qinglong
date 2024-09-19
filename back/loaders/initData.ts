@@ -11,12 +11,23 @@ import { CrontabViewModel, CronViewType } from '../data/cronView';
 import { initPosition } from '../data/env';
 import { AuthDataType, SystemModel } from '../data/system';
 import SystemService from '../services/system';
+import UserService from '../services/user';
+import { writeFile } from 'fs/promises';
 
 export default async () => {
   const cronService = Container.get(CronService);
   const envService = Container.get(EnvService);
   const dependenceService = Container.get(DependenceService);
   const systemService = Container.get(SystemService);
+  const userService = Container.get(UserService);
+
+  // 初始化增加系统配置
+  await SystemModel.upsert({ type: AuthDataType.systemConfig });
+  await SystemModel.upsert({ type: AuthDataType.notification });
+
+  // 初始化通知配置
+  const notifyConfig = await userService.getNotificationMode();
+  await writeFile(config.systemNotifyFile, JSON.stringify(notifyConfig));
 
   const installDependencies = () => {
     // 初始化时安装所有处于安装中，安装成功，安装失败的依赖
@@ -121,7 +132,7 @@ export default async () => {
         if (doc.command.includes(`${config.rootPath}/log/`)) {
           await CrontabModel.update(
             {
-              command: `${config.rootPath}/data/log/${doc.command.replace(
+              command: `${config.dataPath}/log/${doc.command.replace(
                 `${config.rootPath}/log/`,
                 '',
               )}`,
@@ -132,7 +143,7 @@ export default async () => {
         if (doc.command.includes(`${config.rootPath}/config/`)) {
           await CrontabModel.update(
             {
-              command: `${config.rootPath}/data/config/${doc.command.replace(
+              command: `${config.dataPath}/config/${doc.command.replace(
                 `${config.rootPath}/config/`,
                 '',
               )}`,
@@ -143,7 +154,7 @@ export default async () => {
         if (doc.command.includes(`${config.rootPath}/db/`)) {
           await CrontabModel.update(
             {
-              command: `${config.rootPath}/data/db/${doc.command.replace(
+              command: `${config.dataPath}/db/${doc.command.replace(
                 `${config.rootPath}/db/`,
                 '',
               )}`,
@@ -158,7 +169,4 @@ export default async () => {
   // 初始化保存一次ck和定时任务数据
   await cronService.autosave_crontab();
   await envService.set_envs();
-
-  // 初始化增加系统配置
-  await SystemModel.upsert({ type: AuthDataType.systemConfig });
 };

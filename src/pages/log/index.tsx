@@ -120,10 +120,11 @@ const Log = () => {
         <>
           {intl.get('确认删除')}
           <Text style={{ wordBreak: 'break-all' }} type="warning">
-            {select}
+            {' '}
+            {select}{' '}
           </Text>
           {intl.get('文件')}
-          {currentNode.type === 'directory' ? intl.get('夹下所以日志') : ''}
+          {currentNode.type === 'directory' ? intl.get('夹下所有日志') : ''}
           {intl.get('，删除后不可恢复')}
         </>
       ),

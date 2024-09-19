@@ -51,6 +51,9 @@ export default (app: Router) => {
       const logger: Logger = Container.get('logger');
       try {
         const envService = Container.get(EnvService);
+        if (!req.body?.length) {
+          return res.send({ code: 400, message: '参数不正确' });
+        }
         const data = await envService.create(req.body);
         return res.send({ code: 200, data });
       } catch (e) {
@@ -217,7 +220,7 @@ export default (app: Router) => {
         } else {
           return res.send({
             code: 400,
-            message: '文件缺少name或者value字段，参考导出文件格式',
+            message: '每条数据 name 或者 value 字段不能为空，参考导出文件格式',
           });
         }
       } catch (e) {

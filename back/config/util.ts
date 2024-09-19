@@ -30,7 +30,7 @@ export async function getLastModifyFilePath(dir: string) {
 
     arr.forEach(async (item) => {
       const fullpath = path.join(dir, item);
-      const stats = await fs.stat(fullpath);
+      const stats = await fs.lstat(fullpath);
       if (stats.isFile()) {
         if (stats.mtimeMs >= 0) {
           filePath = fullpath;
@@ -257,7 +257,7 @@ export async function readDirs(
 
   for (const file of files) {
     const subPath = path.join(dir, file);
-    const stats = await fs.stat(subPath);
+    const stats = await fs.lstat(subPath);
     const key = path.join(relativePath, file);
 
     if (blacklist.includes(file) || stats.isSymbolicLink()) {
@@ -300,7 +300,7 @@ export async function readDir(
     .filter((x) => !blacklist.includes(x))
     .map(async (file: string) => {
       const subPath = path.join(dir, file);
-      const stats = await fs.stat(subPath);
+      const stats = await fs.lstat(subPath);
       const key = path.join(relativePath, file);
       return {
         title: file,
@@ -399,7 +399,7 @@ export function parseBody(
   valueFormatFn?: (v: string) => string,
 ) {
   if (contentType === 'text/plain' || !body) {
-    return body;
+    return valueFormatFn && body ? valueFormatFn(body) : body;
   }
 
   const parsed = parseString(body, valueFormatFn);
@@ -461,7 +461,7 @@ export async function parseVersion(path: string): Promise<IVersion> {
   return load(await fs.readFile(path, 'utf8')) as IVersion;
 }
 
-export async function parseContentVersion(content: string): Promise<IVersion> {
+export function parseContentVersion(content: string): IVersion {
   return load(content) as IVersion;
 }
 

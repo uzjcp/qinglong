@@ -18,9 +18,9 @@ Timed task management platform supporting Python3, JavaScript, Shell, Typescript
 [docker-image-size-image]: https://img.shields.io/docker/image-size/whyour/qinglong?style=flat
 [docker-image-size-url]: https://hub.docker.com/r/whyour/qinglong
 
-[Demo](http://demo.dlww.cc:4433/) / [Issues](https://github.com/whyour/qinglong/issues) / [Telegram Channel](https://t.me/jiao_long) / [Buy Me a Coffee](https://www.buymeacoffee.com/qinglong)
+[Demo](http://demo.ninesix.cc:4433/) / [Issues](https://github.com/whyour/qinglong/issues) / [Telegram Channel](https://t.me/jiao_long) / [Buy Me a Coffee](https://www.buymeacoffee.com/qinglong)
 
-[演示](http://demo.dlww.cc:4433/) / [反馈](https://github.com/whyour/qinglong/issues) / [Telegram 频道](https://t.me/jiao_long) / [打赏开发者](https://user-images.githubusercontent.com/22700758/244744295-29cd0cd1-c8bb-4ea1-adf6-29bd390ad4dd.jpg)
+[演示](http://demo.ninesix.cc:4433/) / [反馈](https://github.com/whyour/qinglong/issues) / [Telegram 频道](https://t.me/jiao_long) / [打赏开发者](https://user-images.githubusercontent.com/22700758/244744295-29cd0cd1-c8bb-4ea1-adf6-29bd390ad4dd.jpg)
 </div>
 
 ![cover](https://user-images.githubusercontent.com/22700758/244847235-8dc1ca21-e03f-4606-9458-0541fab60413.png)
@@ -48,10 +48,89 @@ docker pull whyour/qinglong:debian
 
 ### npm
 
-The npm version supports `debian/ubuntu/centos/alpine` systems and requires `node/python3` to be installed.
+The npm version supports `debian/ubuntu/alpine` systems and requires `node/npm/python3/pip3/pnpm` to be installed.
 
 ```bash
 npm i @whyour/qinglong
+```
+
+## Deployment
+
+### Docker (Recommended)
+
+```bash
+# curl -sSL get.docker.com | sh
+docker run -dit \
+  -v $PWD/ql/data:/ql/data \
+  # The 5700 after the colon is the default port, if QlPort is set, it needs to be the same as QlPort.
+  -p 5700:5700 \
+  # Deployment paths are not required, e.g. /test.
+  -e QlBaseUrl="/" \
+  # Deployment port is not required, when using host mode, you can set the port after service startup, default 5700
+  -e QlPort="5700" \
+  --name qinglong \
+  --hostname qinglong \
+  --restart unless-stopped \
+  whyour/qinglong:latest
+```
+
+### BaoTa Panel one-click deployment (Recommended)
+
+1. To install Pagoda Panel, go to the official website of [BaoTa Panel](https://www.bt.cn/u/EcDAFU), select the official version of the script to download and install.
+
+2. After installation, login to Pagoda Panel, click `Docker` in the menu bar, the first time you enter, you will be prompted to install `Docker` service, click Install Now, follow the prompts to complete the installation.
+
+3. After the installation is complete, find `Qinglong Panel` in the app shop, click Install, configure the domain name and other basic information to complete the installation.
+
+### Docker-compose (Recommended)
+
+```bash
+# curl -L https://github.com/docker/compose/releases/download/1.16.1/docker-compose-`uname -s`-`uname -m` -o /usr/local/bin/docker-compose
+mkdir qinglong
+wget https://raw.githubusercontent.com/whyour/qinglong/master/docker/docker-compose.yml
+
+# start
+docker-compose up -d
+# stop
+docker-compose down
+```
+
+### Podman (Recommended)
+
+```bash
+# https://podman.io/getting-started/installation
+podman run -dit \
+  --network bridge \
+  -v $PWD/ql/data:/ql/data \
+  # The 5700 after the colon is the default port, if QlPort is set, it needs to be the same as QlPort.
+  -p 5700:5700 \
+  # Deployment paths are not required, e.g. /test.
+  -e QlBaseUrl="/" \
+  # Deployment port is not required, when using host mode, you can set the port after service startup, default 5700
+  -e QlPort="5700" \
+  --name qinglong \
+  --hostname qinglong \
+  docker.io/whyour/qinglong:latest
+```
+
+### Npm (Local)
+
+It is recommended to use a pure system installation to avoid losing the original system data, you need to install node/npm/python3/pip3/pnpm yourself
+
+```bash
+# Debian/Ubuntu
+curl -sL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+```
+
+```bash
+npm install -g node-pre-gyp pnpm@8.3.1
+npm install -g @whyour/qinglong
+qinglong
+# Add the environment variables QL_DIR and QL_DATA_DIR when prompted
+export QL_DIR=""
+export QL_DATA_DIR=""
+# Run again
+qinglong
 ```
 
 ## Built-in commands
@@ -110,89 +189,16 @@ ql resettfa
 | days | File path for task execution |
 | file_path | The name of the environment variable that needs to be concurrent or specified at the time of task execution |
 
-## Deployment
-
-### Docker (Recommended)
-
-```bash
-# curl -sSL get.docker.com | sh
-docker run -dit \
-  -v $PWD/ql/data:/ql/data \
-  # The 5700 after the colon is the default port, if QlPort is set, it needs to be the same as QlPort.
-  -p 5700:5700 \
-  # Deployment paths are not required, e.g. /test.
-  -e QlBaseUrl="/" \
-  # Deployment port is not required, when using host mode, you can set the port after service startup, default 5700
-  -e QlPort="5700" \
-  --name qinglong \
-  --hostname qinglong \
-  --restart unless-stopped \
-  whyour/qinglong:latest
-```
-
-### Docker-compose (Recommended)
-
-```bash
-# curl -L https://github.com/docker/compose/releases/download/1.16.1/docker-compose-`uname -s`-`uname -m` -o /usr/local/bin/docker-compose
-mkdir qinglong
-wget https://raw.githubusercontent.com/whyour/qinglong/master/docker/docker-compose.yml
-
-# start
-docker-compose up -d
-# stop
-docker-compose down
-```
-
-### Podman (Recommended)
-
-```bash
-# https://podman.io/getting-started/installation
-podman run -dit \
-  --network bridge \
-  -v $PWD/ql/data:/ql/data \
-  # The 5700 after the colon is the default port, if QlPort is set, it needs to be the same as QlPort.
-  -p 5700:5700 \
-  # Deployment paths are not required, e.g. /test.
-  -e QlBaseUrl="/" \
-  # Deployment port is not required, when using host mode, you can set the port after service startup, default 5700
-  -e QlPort="5700" \
-  --name qinglong \
-  --hostname qinglong \
-  docker.io/whyour/qinglong:latest
-```
-
-### Local
-
-It is recommended to use a pure system installation to avoid losing the original system data, you need to install node/npm/python3/pip3 yourself
-
-```bash
-# Debian/Ubuntu
-curl -sL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-# Centos
-curl --silent --location https://rpm.nodesource.com/setup_20.x | sudo bash
-```
-
-```bash
-npm install -g node-pre-gyp pnpm@8.3.1
-npm install -g @whyour/qinglong
-qinglong
-# Add the environment variables QL_DIR and QL_DATA_DIR when prompted
-export QL_DIR=""
-export QL_DATA_DIR=""
-# Run again
-qinglong
-```
-
 ## Development
 
 ```bash
-$ git clone https://github.com/whyour/qinglong.git
-$ cd qinglong
-$ cp .env.example .env
+git clone https://github.com/whyour/qinglong.git
+cd qinglong
+cp .env.example .env
 # Recommended use pnpm https://pnpm.io/zh/installation
-$ npm install -g pnpm@8.3.1
-$ pnpm install
-$ pnpm start
+npm install -g pnpm@8.3.1
+pnpm install
+pnpm start
 ```
 
 Open your browser and visit <http://127.0.0.1:5700>

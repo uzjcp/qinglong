@@ -1,11 +1,4 @@
-import {
-  fileExist,
-  getFileContentByName,
-  readDirs,
-  getLastModifyFilePath,
-  readDir,
-  rmPath,
-} from '../config/util';
+import { fileExist, readDirs, readDir, rmPath } from '../config/util';
 import { Router, Request, Response, NextFunction } from 'express';
 import { Container } from 'typedi';
 import { Logger } from 'winston';
@@ -136,7 +129,7 @@ export default (app: Router) => {
         }
 
         if (req.file) {
-          await fs.rename(req.file.path, join(path, req.file.filename));
+          await fs.rename(req.file.path, join(path, filename));
           return res.send({ code: 200 });
         }
 

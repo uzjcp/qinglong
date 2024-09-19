@@ -3,16 +3,34 @@ import os from 'os';
 import { AuthDataType, SystemModel } from '../data/system';
 import Logger from '../loaders/logger';
 import { Dependence } from '../data/dependence';
+import NotificationService from '../services/notify';
+import {
+  ICronFn,
+  IDependencyFn,
+  ISchedule,
+  IScheduleFn,
+  TCron,
+} from './interface';
 
-interface IDependencyFn<T> {
-  (): Promise<T>;
-  dependency?: Dependence;
-}
 class TaskLimit {
   private dependenyLimit = new PQueue({ concurrency: 1 });
   private queuedDependencyIds = new Set<number>([]);
+  private queuedCrons = new Map<string, ICronFn<any>[]>();
+  private repeatCronNotifyMap = new Map<string, number>();
   private updateLogLimit = new PQueue({ concurrency: 1 });
   private cronLimit = new PQueue({
+    concurrency: Math.max(os.cpus().length, 4),
+  });
+  private manualCronoLimit = new PQueue({
+    concurrency: Math.max(os.cpus().length, 4),
+  });
+  private subscriptionLimit = new PQueue({
+    concurrency: Math.max(os.cpus().length, 4),
+  });
+  private scriptLimit = new PQueue({
+    concurrency: Math.max(os.cpus().length, 4),
+  });
+  private systemLimit = new PQueue({
     concurrency: Math.max(os.cpus().length, 4),
   });
 
@@ -27,6 +45,8 @@ class TaskLimit {
   get firstDependencyId() {
     return [...this.queuedDependencyIds.values()][0];
   }
+
+  private notificationService: NotificationService = new NotificationService();
 
   constructor() {
     this.setCustomLimit();
@@ -68,9 +88,20 @@ class TaskLimit {
     }
   }
 
+  public removeQueuedCron(id: string) {
+    if (this.queuedCrons.has(id)) {
+      const runs = this.queuedCrons.get(id);
+      if (runs && runs.length > 0) {
+        runs.pop();
+        this.queuedCrons.set(id, runs);
+      }
+    }
+  }
+
   public async setCustomLimit(limit?: number) {
     if (limit) {
       this.cronLimit.concurrency = limit;
+      this.manualCronoLimit.concurrency = limit;
       return;
     }
     await SystemModel.sync();
@@ -79,14 +110,66 @@ class TaskLimit {
     });
     if (doc?.info?.cronConcurrency) {
       this.cronLimit.concurrency = doc.info.cronConcurrency;
+      this.manualCronoLimit.concurrency = doc.info.cronConcurrency;
     }
   }
 
   public async runWithCronLimit<T>(
+    cron: TCron,
+    fn: ICronFn<T>,
+    options?: Partial<QueueAddOptions>,
+  ): Promise<T | void> {
+    fn.cron = cron;
+    let runs = this.queuedCrons.get(cron.id);
+    const result = runs?.length ? [...runs, fn] : [fn];
+    const repeatTimes = this.repeatCronNotifyMap.get(cron.id) || 0;
+    if (result?.length > 5) {
+      if (repeatTimes < 3) {
+        this.repeatCronNotifyMap.set(cron.id, repeatTimes + 1);
+        this.notificationService.externalNotify(
+          '任务重复运行',
+          `任务：${cron.name}，命令：${cron.command}，定时：${cron.schedule}，处于运行中的超过 5 个，请检查定时设置`,
+        );
+      }
+      Logger.warn(`[schedule][任务重复运行] 参数 ${JSON.stringify(cron)}`);
+      return;
+    }
+    this.queuedCrons.set(cron.id, result);
+    return this.cronLimit.add(fn, options);
+  }
+
+  public async manualRunWithCronLimit<T>(
     fn: () => Promise<T>,
     options?: Partial<QueueAddOptions>,
   ): Promise<T | void> {
-    return this.cronLimit.add(fn, options);
+    return this.manualCronoLimit.add(fn, options);
+  }
+
+  public async runWithSubscriptionLimit<T>(
+    schedule: TCron,
+    fn: IScheduleFn<T>,
+    options?: Partial<QueueAddOptions>,
+  ): Promise<T | void> {
+    fn.schedule = schedule;
+    return this.subscriptionLimit.add(fn, options);
+  }
+
+  public async runWithSystemLimit<T>(
+    schedule: TCron,
+    fn: IScheduleFn<T>,
+    options?: Partial<QueueAddOptions>,
+  ): Promise<T | void> {
+    fn.schedule = schedule;
+    return this.systemLimit.add(fn, options);
+  }
+
+  public async runWithScriptLimit<T>(
+    schedule: ISchedule,
+    fn: IScheduleFn<T>,
+    options?: Partial<QueueAddOptions>,
+  ): Promise<T | void> {
+    fn.schedule = schedule;
+    return this.scriptLimit.add(fn, options);
   }
 
   public runDependeny<T>(

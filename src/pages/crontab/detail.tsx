@@ -110,6 +110,7 @@ const CronDetailModal = ({
           minimap: { enabled: false },
           lineNumbersMinChars: 3,
           glyphMargin: false,
+          accessibilitySupport: 'off',
         }}
         onMount={(editor, monaco) => {
           editorRef.current = editor;
@@ -161,8 +162,9 @@ const CronDetailModal = ({
             setValue(data);
           }
         });
-    } else if (result) {
+    } else {
       setValidTabs([validTabs[0]]);
+      setActiveTabKey('log');
     }
   };
 
@@ -173,8 +175,9 @@ const CronDetailModal = ({
         <>
           {intl.get('确认保存文件')}
           <Text style={{ wordBreak: 'break-all' }} type="warning">
+            {' '}
             {scriptInfo.filename}
-          </Text>{' '}
+          </Text>
           {intl.get('，保存后不可恢复')}
         </>
       ),
@@ -357,10 +360,15 @@ const CronDetailModal = ({
     <Modal
       title={
         <div className="crontab-title-wrapper">
-          <div style={{ minWidth: 0 }}>
+          <div style={{ minWidth: 0, display: 'flex', alignItems: 'center' }}>
             <Typography.Text
-              style={{ width: '100%' }}
-              ellipsis={{ tooltip: currentCron.name }}
+              style={{ width: 200, boxSizing: 'content-box' }}
+              ellipsis={{
+                onEllipsis(ellipsis) {
+                  return ellipsis;
+                },
+                tooltip: currentCron.name,
+              }}
             >
               {currentCron.name}
             </Typography.Text>

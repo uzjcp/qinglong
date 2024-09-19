@@ -1,9 +1,9 @@
-FROM python:3.11-alpine3.18 as builder
+FROM python:3.11-alpine3.18 AS builder
 COPY package.json .npmrc pnpm-lock.yaml /tmp/build/
 RUN set -x \
   && apk update \
   && apk add nodejs npm git \
-  && npm i -g pnpm@8.3.1 pm2 tsx \
+  && npm i -g pnpm@8.3.1 pm2 ts-node \
   && cd /tmp/build \
   && pnpm install --prod
 
@@ -15,7 +15,7 @@ ARG QL_URL=https://github.com/${QL_MAINTAINER}/qinglong.git
 ARG QL_BRANCH=develop
 
 ENV PNPM_HOME=/root/.local/share/pnpm \
-  PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.local/share/pnpm:/root/.local/share/pnpm/global/5/node_modules:$PNPM_HOME \
+  PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.local/share/pnpm:/root/.local/share/pnpm/global/5/node_modules \
   NODE_PATH=/usr/local/bin:/usr/local/pnpm-global/5/node_modules:/usr/local/lib/node_modules:/root/.local/share/pnpm/global/5/node_modules \
   LANG=C.UTF-8 \
   SHELL=/bin/bash \
@@ -59,7 +59,8 @@ RUN set -x \
   && rm -rf /root/.pnpm-store \
   && rm -rf /root/.local/share/pnpm/store \
   && rm -rf /root/.cache \
-  && ulimit -c 0
+  && ulimit -c 0 \
+  && pip3 install requests
 
 ARG SOURCE_COMMIT
 RUN git clone --depth=1 -b ${QL_BRANCH} ${QL_URL} ${QL_DIR} \

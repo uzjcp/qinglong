@@ -108,6 +108,7 @@ const Script = () => {
       };
       const item = findNode(_data, (c) => c.key === obj.node.key);
       if (item) {
+        obj.node = item;
         setExpandedKeys([p as string]);
         onTreeSelect([vkey], obj);
       }
@@ -218,8 +219,9 @@ const Script = () => {
         <>
           {intl.get('确认保存文件')}
           <Text style={{ wordBreak: 'break-all' }} type="warning">
+            {' '}
             {currentNode.title}
-          </Text>{' '}
+          </Text>
           {intl.get('，保存后不可恢复')}
         </>
       ),
@@ -258,7 +260,8 @@ const Script = () => {
         <>
           {intl.get('确认删除')}
           <Text style={{ wordBreak: 'break-all' }} type="warning">
-            {select}
+            {' '}
+            {select}{' '}
           </Text>
           {intl.get('文件')}
           {currentNode.type === 'directory' ? intl.get('夹及其子文件') : ''}
@@ -375,7 +378,7 @@ const Script = () => {
 
   useEffect(() => {
     if (treeDom.current) {
-      setHeight(treeDom.current.clientHeight);
+      setHeight(treeDom.current.clientHeight - 6);
     }
   }, [treeDom.current, data]);
 
@@ -641,6 +644,7 @@ const Script = () => {
                 fontSize: 12,
                 lineNumbersMinChars: 3,
                 glyphMargin: false,
+                accessibilitySupport: 'off',
               }}
               onMount={(editor) => {
                 editorRef.current = editor;

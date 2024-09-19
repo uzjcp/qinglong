@@ -7,6 +7,7 @@ import ScheduleService, { TaskCallbacks } from './schedule';
 import config from '../config';
 import { TASK_COMMAND } from '../config/const';
 import { getFileContentByName, getPid, killTask, rmPath } from '../config/util';
+import taskLimit from '../shared/pLimit';
 
 @Service()
 export default class ScriptService {
@@ -41,9 +42,9 @@ export default class ScriptService {
     const relativePath = path.relative(config.scriptPath, filePath);
     const command = `${TASK_COMMAND} ${relativePath} now`;
     const pid = await this.scheduleService.runTask(
-      command,
+      `real_time=true ${command}`,
       this.taskCallbacks(filePath),
-      { command },
+      { command, id: relativePath.replace(/ /g, '-'), runOrigin: 'script' },
       'start',
     );
 
@@ -53,6 +54,7 @@ export default class ScriptService {
   public async stopScript(filePath: string, pid: number) {
     if (!pid) {
       const relativePath = path.relative(config.scriptPath, filePath);
+      taskLimit.removeQueuedCron(relativePath.replace(/ /g, '-'));
       pid = (await getPid(`${TASK_COMMAND} ${relativePath} now`)) as number;
     }
     try {
@@ -63,8 +65,13 @@ export default class ScriptService {
   }
 
   public async getFile(filePath: string, fileName: string) {
-    const _filePath = join(config.scriptPath, filePath, fileName);
-    const content = await getFileContentByName(_filePath);
+    const finalPath = path.resolve(config.scriptPath, filePath, fileName);
+
+    if (!finalPath.startsWith(config.scriptPath)) {
+      return '';
+    }
+
+    const content = await getFileContentByName(finalPath);
     return content;
   }
 }

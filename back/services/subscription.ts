@@ -3,6 +3,7 @@ import winston from 'winston';
 import config from '../config';
 import {
   Subscription,
+  SubscriptionInstance,
   SubscriptionModel,
   SubscriptionStatus,
 } from '../data/subscription';
@@ -29,6 +30,7 @@ import { LOG_END_SYMBOL } from '../config/const';
 import { formatCommand, formatUrl } from '../config/subscription';
 import { CrontabModel } from '../data/cron';
 import CrontabService from './cron';
+import taskLimit from '../shared/pLimit';
 
 @Service()
 export default class SubscriptionService {
@@ -40,8 +42,12 @@ export default class SubscriptionService {
     private crontabService: CrontabService,
   ) {}
 
-  public async list(searchText?: string): Promise<Subscription[]> {
+  public async list(
+    searchText?: string,
+    ids?: string,
+  ): Promise<SubscriptionInstance[]> {
     let query = {};
+    const subIds = JSON.parse(ids || '[]');
     if (searchText) {
       const reg = {
         [Op.or]: [
@@ -62,7 +68,7 @@ export default class SubscriptionService {
     }
     try {
       const result = await SubscriptionModel.findAll({
-        where: query,
+        where: { ...query, ...(ids ? { id: subIds } : undefined) },
         order: [
           ['is_disabled', 'ASC'],
           ['createdAt', 'DESC'],
@@ -87,16 +93,16 @@ export default class SubscriptionService {
       this.scheduleService.cancelCronTask(doc as any);
       needCreate &&
         (await this.scheduleService.createCronTask(
-          doc as any,
+          { ...doc, runOrigin: 'subscription' } as any,
           this.taskCallbacks(doc),
           runImmediately,
         ));
-    } else {
+    } else if (doc.interval_schedule) {
       this.scheduleService.cancelIntervalTask(doc as any);
-      const { type, value } = doc.interval_schedule as any;
+      const { type, value } = doc.interval_schedule;
       needCreate &&
         (await this.scheduleService.createIntervalTask(
-          doc as any,
+          { ...doc, runOrigin: 'subscription' } as any,
           { [type]: value } as SimpleIntervalSchedule,
           runImmediately,
           this.taskCallbacks(doc),
@@ -202,12 +208,12 @@ export default class SubscriptionService {
   public async create(payload: Subscription): Promise<Subscription> {
     const tab = new Subscription(payload);
     const doc = await this.insert(tab);
-    await this.handleTask(doc);
+    await this.handleTask(doc.get({ plain: true }));
     await this.setSshConfig();
     return doc;
   }
 
-  public async insert(payload: Subscription): Promise<Subscription> {
+  public async insert(payload: Subscription): Promise<SubscriptionInstance> {
     return await SubscriptionModel.create(payload, { returning: true });
   }
 
@@ -256,10 +262,10 @@ export default class SubscriptionService {
     );
   }
 
-  public async remove(ids: number[], query: any) {
+  public async remove(ids: number[], query: { force?: boolean }) {
     const docs = await SubscriptionModel.findAll({ where: { id: ids } });
     for (const doc of docs) {
-      await this.handleTask(doc, false);
+      await this.handleTask(doc.get({ plain: true }), false);
     }
     await SubscriptionModel.destroy({ where: { id: ids } });
     await this.setSshConfig();
@@ -271,7 +277,9 @@ export default class SubscriptionService {
       }
       for (const doc of docs) {
         const filePath = join(config.scriptPath, doc.alias);
+        const repoPath = join(config.repoPath, doc.alias);
         await rmPath(filePath);
+        await rmPath(repoPath);
       }
     }
   }
@@ -279,8 +287,11 @@ export default class SubscriptionService {
   public async getDb(
     query: FindOptions<Subscription>['where'],
   ): Promise<Subscription> {
-    const doc: any = await SubscriptionModel.findOne({ where: { ...query } });
-    return doc && (doc.get({ plain: true }) as Subscription);
+    const doc = await SubscriptionModel.findOne({ where: { ...query } });
+    if (!doc) {
+      throw new Error(`Subscription ${JSON.stringify(query)} not found`);
+    }
+    return doc.get({ plain: true });
   }
 
   public async run(ids: number[]) {
@@ -323,6 +334,8 @@ export default class SubscriptionService {
       name: subscription.name,
       schedule: subscription.schedule,
       command,
+      id: String(subscription.id),
+      runOrigin: 'subscription',
     });
   }
 
@@ -331,7 +344,7 @@ export default class SubscriptionService {
     const docs = await SubscriptionModel.findAll({ where: { id: ids } });
     await this.setSshConfig();
     for (const doc of docs) {
-      await this.handleTask(doc, false);
+      await this.handleTask(doc.get({ plain: true }), false);
     }
   }
 
@@ -340,7 +353,7 @@ export default class SubscriptionService {
     const docs = await SubscriptionModel.findAll({ where: { id: ids } });
     await this.setSshConfig();
     for (const doc of docs) {
-      await this.handleTask(doc);
+      await this.handleTask(doc.get({ plain: true }));
     }
   }
 
@@ -371,7 +384,7 @@ export default class SubscriptionService {
             files.map(async (x) => ({
               filename: x,
               directory: relativeDir.replace(config.logPath, ''),
-              time: (await fs.stat(`${dir}/${x}`)).mtime.getTime(),
+              time: (await fs.lstat(`${dir}/${x}`)).mtime.getTime(),
             })),
           )
         ).sort((a, b) => b.time - a.time);

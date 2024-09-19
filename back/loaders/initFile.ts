@@ -5,7 +5,13 @@ import Logger from './logger';
 import { fileExist } from '../config/util';
 
 const rootPath = process.env.QL_DIR as string;
-const dataPath = path.join(rootPath, 'data/');
+let dataPath = path.join(rootPath, 'data/');
+
+if (process.env.QL_DATA_DIR) {
+  dataPath = process.env.QL_DATA_DIR.replace(/\/$/g, '');
+}
+
+const preloadPath = path.join(rootPath, 'shell/preload/');
 const configPath = path.join(dataPath, 'config/');
 const scriptPath = path.join(dataPath, 'scripts/');
 const logPath = path.join(dataPath, 'log/');
@@ -22,7 +28,11 @@ const sampleNotifyJsFile = path.join(samplePath, 'notify.js');
 const sampleNotifyPyFile = path.join(samplePath, 'notify.py');
 const scriptNotifyJsFile = path.join(scriptPath, 'sendNotify.js');
 const scriptNotifyPyFile = path.join(scriptPath, 'notify.py');
+const jsNotifyFile = path.join(preloadPath, 'notify.js');
+const pyNotifyFile = path.join(preloadPath, 'notify.py');
 const TaskBeforeFile = path.join(configPath, 'task_before.sh');
+const TaskBeforeJsFile = path.join(configPath, 'task_before.js');
+const TaskBeforePyFile = path.join(configPath, 'task_before.py');
 const TaskAfterFile = path.join(configPath, 'task_after.sh');
 const homedir = os.homedir();
 const sshPath = path.resolve(homedir, '.ssh');
@@ -33,6 +43,7 @@ export default async () => {
   const authFileExist = await fileExist(authConfigFile);
   const confFileExist = await fileExist(confFile);
   const scriptDirExist = await fileExist(scriptPath);
+  const preloadDirExist = await fileExist(preloadPath);
   const logDirExist = await fileExist(logPath);
   const configDirExist = await fileExist(configPath);
   const uploadDirExist = await fileExist(uploadPath);
@@ -44,6 +55,8 @@ export default async () => {
   const scriptNotifyJsFileExist = await fileExist(scriptNotifyJsFile);
   const scriptNotifyPyFileExist = await fileExist(scriptNotifyPyFile);
   const TaskBeforeFileExist = await fileExist(TaskBeforeFile);
+  const TaskBeforeJsFileExist = await fileExist(TaskBeforeJsFile);
+  const TaskBeforePyFileExist = await fileExist(TaskBeforePyFile);
   const TaskAfterFileExist = await fileExist(TaskAfterFile);
 
   if (!configDirExist) {
@@ -52,6 +65,10 @@ export default async () => {
 
   if (!scriptDirExist) {
     await fs.mkdir(scriptPath);
+  }
+
+  if (!preloadDirExist) {
+    await fs.mkdir(preloadPath);
   }
 
   if (!logDirExist) {
@@ -91,6 +108,9 @@ export default async () => {
     await fs.writeFile(confFile, await fs.readFile(sampleConfigFile));
   }
 
+  await fs.writeFile(jsNotifyFile, await fs.readFile(sampleNotifyJsFile));
+  await fs.writeFile(pyNotifyFile, await fs.readFile(sampleNotifyPyFile));
+
   if (!scriptNotifyJsFileExist) {
     await fs.writeFile(
       scriptNotifyJsFile,
@@ -107,6 +127,20 @@ export default async () => {
 
   if (!TaskBeforeFileExist) {
     await fs.writeFile(TaskBeforeFile, await fs.readFile(sampleTaskShellFile));
+  }
+
+  if (!TaskBeforeJsFileExist) {
+    await fs.writeFile(
+      TaskBeforeJsFile,
+      '// The JavaScript code that executes before the JavaScript task execution will execute.',
+    );
+  }
+
+  if (!TaskBeforePyFileExist) {
+    await fs.writeFile(
+      TaskBeforePyFile,
+      '# The Python code that executes before the Python task execution will execute.',
+    );
   }
 
   if (!TaskAfterFileExist) {

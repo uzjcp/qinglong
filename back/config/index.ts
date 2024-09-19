@@ -19,12 +19,19 @@ const lastVersionFile = `https://qn.whyour.cn/version.yaml`;
 const rootPath = process.env.QL_DIR as string;
 const envFound = dotenv.config({ path: path.join(rootPath, '.env') });
 
-const dataPath = path.join(rootPath, 'data/');
+let dataPath = path.join(rootPath, 'data/');
+
+if (process.env.QL_DATA_DIR) {
+  dataPath = process.env.QL_DATA_DIR.replace(/\/$/g, '');
+}
+
 const shellPath = path.join(rootPath, 'shell/');
+const preloadPath = path.join(shellPath, 'preload/');
 const tmpPath = path.join(rootPath, '.tmp/');
 const samplePath = path.join(rootPath, 'sample/');
 const configPath = path.join(dataPath, 'config/');
 const scriptPath = path.join(dataPath, 'scripts/');
+const repoPath = path.join(dataPath, 'repo/');
 const bakPath = path.join(dataPath, 'bak/');
 const logPath = path.join(dataPath, 'log/');
 const dbPath = path.join(dataPath, 'db/');
@@ -32,7 +39,11 @@ const uploadPath = path.join(dataPath, 'upload/');
 const sshdPath = path.join(dataPath, 'ssh.d/');
 const systemLogPath = path.join(dataPath, 'syslog/');
 
-const envFile = path.join(configPath, 'env.sh');
+const envFile = path.join(preloadPath, 'env.sh');
+const jsEnvFile = path.join(preloadPath, 'env.js');
+const pyEnvFile = path.join(preloadPath, 'env.py');
+const jsNotifyFile = path.join(preloadPath, 'notify.js');
+const pyNotifyFile = path.join(preloadPath, 'notify.py');
 const confFile = path.join(configPath, 'config.sh');
 const crontabFile = path.join(configPath, 'crontab.list');
 const authConfigFile = path.join(configPath, 'auth.json');
@@ -40,6 +51,7 @@ const extraFile = path.join(configPath, 'extra.sh');
 const confBakDir = path.join(dataPath, 'config/bak/');
 const sampleFile = path.join(samplePath, 'config.sample.sh');
 const sqliteFile = path.join(samplePath, 'database.sqlite');
+const systemNotifyFile = path.join(preloadPath, 'system-notify.json');
 
 const authError = '错误的用户名密码，请重试';
 const loginFaild = '请先登录!';
@@ -82,10 +94,15 @@ export default {
   sampleFile,
   confFile,
   envFile,
+  jsEnvFile,
+  pyEnvFile,
+  jsNotifyFile,
+  pyNotifyFile,
   dbPath,
   uploadPath,
   configPath,
   scriptPath,
+  repoPath,
   samplePath,
   blackFileList: [
     'auth.json',
@@ -94,6 +111,8 @@ export default {
     'crontab.list',
     'dependence-proxy.sh',
     'env.sh',
+    'env.js',
+    'env.py',
     'token.json',
   ],
   writePathList: [configPath, scriptPath],
@@ -116,4 +135,5 @@ export default {
   sqliteFile,
   sshdPath,
   systemLogPath,
+  systemNotifyFile,
 };

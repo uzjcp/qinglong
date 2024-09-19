@@ -15,6 +15,7 @@ import {
   parseVersion,
   promiseExec,
   readDirs,
+  rmPath,
 } from '../config/util';
 import {
   DependenceModel,
@@ -24,7 +25,7 @@ import {
 import { NotificationInfo } from '../data/notify';
 import {
   AuthDataType,
-  AuthInfo,
+  SystemInfo,
   SystemInstance,
   SystemModel,
   SystemModelInfo,
@@ -33,6 +34,8 @@ import taskLimit from '../shared/pLimit';
 import NotificationService from './notify';
 import ScheduleService, { TaskCallbacks } from './schedule';
 import SockService from './sock';
+import os from 'os';
+import dayjs from 'dayjs';
 
 @Service()
 export default class SystemService {
@@ -47,18 +50,21 @@ export default class SystemService {
 
   public async getSystemConfig() {
     const doc = await this.getDb({ type: AuthDataType.systemConfig });
-    return doc || ({} as SystemInstance);
+    return doc;
   }
 
-  private async updateAuthDb(payload: AuthInfo): Promise<SystemInstance> {
+  private async updateAuthDb(payload: SystemInfo): Promise<SystemInfo> {
     await SystemModel.upsert({ ...payload });
     const doc = await this.getDb({ type: payload.type });
     return doc;
   }
 
-  public async getDb(query: any): Promise<SystemInstance> {
-    const doc: any = await SystemModel.findOne({ where: { ...query } });
-    return doc && doc.get({ plain: true });
+  public async getDb(query: any): Promise<SystemInfo> {
+    const doc = await SystemModel.findOne({ where: { ...query } });
+    if (!doc) {
+      throw new Error(`System ${JSON.stringify(query)} not found`);
+    }
+    return doc.get({ plain: true });
   }
 
   public async updateNotificationMode(notificationInfo: NotificationInfo) {
@@ -86,17 +92,22 @@ export default class SystemService {
       info: { ...oDoc.info, ...info },
     });
     const cron = {
-      id: result.id || NaN,
+      id: result.id as number,
       name: '删除日志',
       command: `ql rmlog ${info.logRemoveFrequency}`,
+      runOrigin: 'system' as const,
     };
     if (oDoc.info?.logRemoveFrequency) {
       await this.scheduleService.cancelIntervalTask(cron);
     }
     if (info.logRemoveFrequency && info.logRemoveFrequency > 0) {
-      this.scheduleService.createIntervalTask(cron, {
-        days: info.logRemoveFrequency,
-      });
+      this.scheduleService.createIntervalTask(
+        cron,
+        {
+          days: info.logRemoveFrequency,
+        },
+        true,
+      );
     }
     return { code: 200, data: info };
   }
@@ -172,6 +183,8 @@ export default class SystemService {
       },
       {
         command,
+        id: 'update-node-mirror',
+        runOrigin: 'system',
       },
     );
   }
@@ -202,6 +215,9 @@ export default class SystemService {
     });
     let defaultDomain = 'https://dl-cdn.alpinelinux.org';
     let targetDomain = 'https://dl-cdn.alpinelinux.org';
+    if (os.platform() !== 'linux') {
+      return;
+    }
     const content = await fs.promises.readFile('/etc/apk/repositories', {
       encoding: 'utf-8',
     });
@@ -243,6 +259,8 @@ export default class SystemService {
       },
       {
         command,
+        id: 'update-linux-mirror',
+        runOrigin: 'system',
       },
     );
   }
@@ -259,7 +277,7 @@ export default class SystemService {
             timeout: 30000,
           },
         );
-        lastVersionContent = await parseContentVersion(result.body);
+        lastVersionContent = parseContentVersion(result.body);
       } catch (error) {}
 
       if (!lastVersionContent) {
@@ -348,20 +366,15 @@ export default class SystemService {
     }
   }
 
-  public async run(
-    { command, logPath }: { command: string; logPath: string },
-    callback: TaskCallbacks,
-  ) {
+  public async run({ command }: { command: string }, callback: TaskCallbacks) {
     if (!command.startsWith(TASK_COMMAND)) {
       command = `${TASK_COMMAND} ${command}`;
     }
-    this.scheduleService.runTask(
-      `real_log_path=${logPath} real_time=true ${command}`,
-      callback,
-      {
-        command,
-      },
-    );
+    this.scheduleService.runTask(`real_time=true ${command}`, callback, {
+      command,
+      id: command.replace(/ /g, '-'),
+      runOrigin: 'system',
+    });
   }
 
   public async stop({ command, pid }: { command: string; pid: number }) {
@@ -388,7 +401,9 @@ export default class SystemService {
 
   public async exportData(res: Response) {
     try {
-      await promiseExec(`cd ${config.rootPath} && tar -zcvf ${config.dataTgzFile} data/`);
+      await promiseExec(
+        `cd ${config.rootPath} && tar -zcvf ${config.dataTgzFile} data/`,
+      );
       res.download(config.dataTgzFile);
     } catch (error: any) {
       return res.send({ code: 400, message: error.message });
@@ -407,9 +422,25 @@ export default class SystemService {
     }
   }
 
-  public async getSystemLog(res: Response) {
+  public async getSystemLog(
+    res: Response,
+    query: {
+      startTime?: string;
+      endTime?: string;
+    },
+  ) {
+    const startTime = dayjs(query.startTime || undefined)
+      .startOf('d')
+      .valueOf();
+    const endTime = dayjs(query.endTime || undefined)
+      .endOf('d')
+      .valueOf();
     const result = await readDirs(config.systemLogPath, config.systemLogPath);
-    const logs = result.reverse().filter((x) => x.title.endsWith('.log'));
+    const logs = result
+      .reverse()
+      .filter((x) => x.title.endsWith('.log'))
+      .filter((x) => x.mtime >= startTime && x.mtime <= endTime);
+
     res.set({
       'Content-Length': sum(logs.map((x) => x.size)),
     });
@@ -430,5 +461,13 @@ export default class SystemService {
         currentFileStream.pipe(res, { end: false });
       }
     })(res, logs);
+  }
+
+  public async deleteSystemLog() {
+    const result = await readDirs(config.systemLogPath, config.systemLogPath);
+    const logs = result.reverse().filter((x) => x.title.endsWith('.log'));
+    for (const log of logs) {
+      await rmPath(path.join(config.systemLogPath, log.title));
+    }
   }
 }

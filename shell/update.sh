@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 dir_shell=$QL_DIR/shell
-. $dir_shell/env.sh
 . $dir_shell/share.sh
 . $dir_shell/api.sh
+. $dir_shell/env.sh
 
 send_mark=$dir_shell/send_mark
 
@@ -156,21 +156,15 @@ update_raw() {
     autoDelCron=${AutoDelCron}
   fi
 
-  local proxyStr=""
-  if [[ $proxy ]]; then
-    if [[ $url == http:* ]]; then
-      proxyStr="-e \"http_proxy=${proxy}\""
-    elif [[ $url == https:* ]]; then
-      proxyStr="-e \"http_proxy=${proxy};https_proxy=${proxy}\""
-    fi
-  fi
-
   local raw_url="$url"
   local suffix="${raw_url##*.}"
   local raw_file_name="${uniq_path}.${suffix}"
   echo -e "开始下载：${raw_url} \n\n保存路径：$dir_raw/${raw_file_name}\n"
 
-  wget -q --no-check-certificate $proxyStr -O "$dir_raw/${raw_file_name}.new" ${raw_url}
+  set_proxy "$proxy"
+  wget -q --no-check-certificate -O "$dir_raw/${raw_file_name}.new" ${raw_url}
+  exit_status=$?
+  unset_proxy
 
   if [[ $? -eq 0 ]]; then
     mv "$dir_raw/${raw_file_name}.new" "$dir_raw/${raw_file_name}"
@@ -248,14 +242,14 @@ reload_qinglong() {
   fi
 
   if [[ "$reload_target" == 'data' ]]; then
-    rm -rf ${dir_root}/data/*
-    mv -f ${dir_tmp}/data/* ${dir_root}/data/
+    rm -rf ${dir_data}/*
+    mv -f ${dir_tmp}/data/* ${dir_data}/
   fi
 
   reload_pm2
 }
 
-## 更新qinglong
+## 更新 qinglong
 update_qinglong() {
   rm -rf ${dir_tmp}/*
   local mirror="gitee"
@@ -527,7 +521,7 @@ main() {
   raw)
     get_uniq_path "$p2"
     if [[ -n $p2 ]]; then
-      update_raw "$p2" "$p3" "$p4"
+      update_raw "$p2" "$p3" "$p4" "$p5"
     else
       eval echo -e "命令输入错误...\\\n" $cmd
       eval usage $cmd
@@ -569,6 +563,7 @@ main() {
   fi
 }
 
+import_config "$@"
 main "$@"
 
 exit 0

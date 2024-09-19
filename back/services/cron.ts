@@ -12,7 +12,7 @@ import {
   getUniqPath,
   safeJSONParse,
 } from '../config/util';
-import { Op, where, col as colFn, FindOptions, fn } from 'sequelize';
+import { Op, where, col as colFn, FindOptions, fn, Order } from 'sequelize';
 import path from 'path';
 import { TASK_PREFIX, QL_PREFIX } from '../config/const';
 import cronClient from '../schedule/client';
@@ -114,7 +114,13 @@ export default class CronService {
     }
 
     for (const id of ids) {
-      const cron = await this.getDb({ id });
+      let cron;
+      try {
+        cron = await this.getDb({ id });
+      } catch (err) {}
+      if (!cron) {
+        continue;
+      }
       if (status === CrontabStatus.idle && log_path !== cron.log_path) {
         options = omit(options, ['status', 'log_path', 'pid']);
       }
@@ -356,9 +362,9 @@ export default class CronService {
         order.unshift([field, type]);
       }
     }
-    let condition: any = {
+    let condition: FindOptions<Crontab> = {
       where: query,
-      order: order,
+      order: order as Order,
     };
     if (page && size) {
       condition.offset = (page - 1) * size;
@@ -375,7 +381,10 @@ export default class CronService {
 
   public async getDb(query: FindOptions<Crontab>['where']): Promise<Crontab> {
     const doc: any = await CrontabModel.findOne({ where: { ...query } });
-    return doc && (doc.get({ plain: true }) as Crontab);
+    if (!doc) {
+      throw new Error(`Cron ${JSON.stringify(query)} not found`);
+    }
+    return doc.get({ plain: true });
   }
 
   public async run(ids: number[]) {
@@ -407,7 +416,7 @@ export default class CronService {
   }
 
   private async runSingle(cronId: number): Promise<number | void> {
-    return taskLimit.runWithCronLimit(() => {
+    return taskLimit.manualRunWithCronLimit(() => {
       return new Promise(async (resolve: any) => {
         const cron = await this.getDb({ id: cronId });
         const params = {
@@ -422,7 +431,7 @@ export default class CronService {
         }
 
         this.logger.info(
-          `[panel][开始执行任务] 参数 ${JSON.stringify(params)}`,
+          `[panel][开始执行任务] 参数: ${JSON.stringify(params)}`,
         );
 
         let { id, command, log_path } = cron;
@@ -434,9 +443,11 @@ export default class CronService {
         }
         const logPath = `${uniqPath}/${logTime}.log`;
         const absolutePath = path.resolve(config.logPath, `${logPath}`);
-
         const cp = spawn(
-          `real_log_path=${logPath} no_delay=true ${this.makeCommand(cron)}`,
+          `real_log_path=${logPath} no_delay=true ${this.makeCommand(
+            cron,
+            true,
+          )}`,
           { shell: '/bin/bash' },
         );
 
@@ -444,14 +455,32 @@ export default class CronService {
           { status: CrontabStatus.running, pid: cp.pid, log_path: logPath },
           { where: { id } },
         );
+        cp.stdout.on('data', async (data) => {
+          await fs.appendFile(absolutePath, data.toString());
+        });
         cp.stderr.on('data', async (data) => {
-          await fs.appendFile(`${absolutePath}`, `${data.toString()}`);
+          this.logger.info(
+            '[panel][执行任务失败] 命令: %s, 错误信息: %j',
+            command,
+            data.toString(),
+          );
+          await fs.appendFile(absolutePath, data.toString());
         });
         cp.on('error', async (err) => {
-          await fs.appendFile(`${absolutePath}`, `${JSON.stringify(err)}`);
+          this.logger.error(
+            '[panel][创建任务失败] 命令: %s, 错误信息: %j',
+            command,
+            err,
+          );
+          await fs.appendFile(absolutePath, JSON.stringify(err));
         });
 
         cp.on('exit', async (code) => {
+          this.logger.info(
+            '[panel][执行任务结束] 参数: %s, 退出码: %j',
+            JSON.stringify(params),
+            code,
+          );
           await CrontabModel.update(
             { status: CrontabStatus.idle, pid: undefined },
             { where: { id } },
@@ -515,7 +544,7 @@ export default class CronService {
           files.map(async (x) => ({
             filename: x,
             directory: relativeDir.replace(config.logPath, ''),
-            time: (await fs.stat(`${dir}/${x}`)).mtime.getTime(),
+            time: (await fs.lstat(`${dir}/${x}`)).mtime.getTime(),
           })),
         )
       ).sort((a, b) => b.time - a.time);
@@ -524,20 +553,24 @@ export default class CronService {
     }
   }
 
-  private makeCommand(tab: Crontab) {
+  private makeCommand(tab: Crontab, realTime?: boolean) {
     let command = tab.command.trim();
     if (!command.startsWith(TASK_PREFIX) && !command.startsWith(QL_PREFIX)) {
       command = `${TASK_PREFIX}${tab.command}`;
     }
-    let commandVariable = `no_tee=true ID=${tab.id} `;
+    let commandVariable = `real_time=${Boolean(realTime)} no_tee=true ID=${
+      tab.id
+    } `;
     if (tab.task_before) {
       commandVariable += `task_before='${tab.task_before
         .replace(/'/g, "'\\''")
+        .replace(/;? *\n/g, ';')
         .trim()}' `;
     }
     if (tab.task_after) {
       commandVariable += `task_after='${tab.task_after
         .replace(/'/g, "'\\''")
+        .replace(/;? *\n/g, ';')
         .trim()}' `;
     }
 
