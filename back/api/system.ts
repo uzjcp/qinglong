@@ -33,7 +33,7 @@ export default (app: Router) => {
     const logger: Logger = Container.get('logger');
     try {
       const userService = Container.get(UserService);
-      const authInfo = await userService.getUserInfo();
+      const authInfo = await userService.getAuthInfo();
       const { version, changeLog, changeLogLink, publishTime } =
         await parseVersion(config.versionFile);
 
@@ -372,6 +372,25 @@ export default (app: Router) => {
         const systemService = Container.get(SystemService);
         await systemService.deleteSystemLog();
         res.send({ code: 200 });
+      } catch (e) {
+        return next(e);
+      }
+    },
+  );
+
+  route.put(
+    '/auth/reset',
+    celebrate({
+      body: Joi.object({
+        retries: Joi.number().optional(),
+        twoFactorActivated: Joi.boolean().optional(),
+      }),
+    }),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userService = Container.get(UserService);
+        await userService.resetAuthInfo(req.body);
+        res.send({ code: 200, message: '更新成功' });
       } catch (e) {
         return next(e);
       }

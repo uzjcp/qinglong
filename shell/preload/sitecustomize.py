@@ -5,6 +5,7 @@ import json
 import builtins
 import sys
 import env
+import signal
 
 
 def try_parse_int(value):
@@ -63,7 +64,8 @@ def run():
         for key, value in env_json.items():
             os.environ[key] = value
 
-        print(output)
+        if len(output) > 0:
+            print(output)
         if task_before:
             print("执行前置命令结束")
 
@@ -72,10 +74,10 @@ def run():
     except OSError as error:
         error_message = str(error)
         if "Argument list too long" not in error_message:
-            print(f"❌ run task before error: {error}")
+            print(f"\ue926 run task before error: {error}")
         else:
             print(
-                "❌ The environment variable is too large. It is recommended to use task_before.py instead of task_before.sh\n"
+                "\ue926 The environment variable is too large. It is recommended to use task_before.py instead of task_before.sh\n"
             )
         if task_before:
             print("执行前置命令结束")
@@ -95,7 +97,13 @@ def run():
         os.environ[env_param] = env_str
 
 
+def handle_sigterm(signum, frame):
+    sys.exit(15)
+
+
 try:
+    signal.signal(signal.SIGTERM, handle_sigterm)
+
     run()
 
     from notify import send

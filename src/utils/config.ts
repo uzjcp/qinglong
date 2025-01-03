@@ -84,6 +84,7 @@ export default {
   },
   notificationModes: [
     { value: 'gotify', label: 'Gotify' },
+    { value: 'ntfy', label: 'Ntfy' },
     { value: 'goCqHttpBot', label: 'GoCqHttpBot' },
     { value: 'serverChan', label: intl.get('Server酱') },
     { value: 'pushDeer', label: 'PushDeer' },
@@ -96,6 +97,7 @@ export default {
     { value: 'iGot', label: 'IGot' },
     { value: 'pushPlus', label: 'PushPlus' },
     { value: 'wePlusBot', label: intl.get('微加机器人') },
+    { value: 'wxPusherBot', label: 'wxPusher' },
     { value: 'chat', label: intl.get('群晖chat') },
     { value: 'email', label: intl.get('邮箱') },
     { value: 'lark', label: intl.get('飞书机器人') },
@@ -117,6 +119,19 @@ export default {
         required: true,
       },
       { label: 'gotifyPriority', tip: intl.get('推送消息的优先级') },
+    ],
+    ntfy: [
+      {
+        label: 'ntfyUrl',
+        tip: intl.get('ntfy的url地址，例如 https://ntfy.sh'),
+        required: true,
+      },
+      {
+        label: 'ntfyTopic',
+        tip: intl.get('ntfy的消息应用topic'),
+        required: true,
+      },
+      { label: 'ntfyPriority', tip: intl.get('推送消息的优先级') },
     ],
     chat: [
       {
@@ -312,6 +327,36 @@ export default {
           '一对多推送的“群组编码”（一对多推送下面->您的群组(如无则创建)->群组编码，如果您是创建群组人。也需点击“查看二维码”扫描绑定，否则不能接受群组消息推送）',
         ),
       },
+      {
+        label: 'pushplusTemplate',
+        tip: intl.get(
+          '发送模板',
+        ),
+      },
+      {
+        label: 'pushplusChannel',
+        tip: intl.get(
+          '发送渠道',
+        ),
+      },
+      {
+        label: 'pushplusWebhook',
+        tip: intl.get(
+          'webhook编码',
+        ),
+      },
+      {
+        label: 'pushplusCallbackUrl',
+        tip: intl.get(
+          '发送结果回调地址',
+        ),
+      },
+      {
+        label: 'pushplusTo',
+        tip: intl.get(
+          '好友令牌',
+        ),
+      },
     ],
     wePlusBot: [
       {
@@ -332,6 +377,23 @@ export default {
         tip: intl.get(
           '调用版本；专业版填写pro，个人版填写personal，为空默认使用专业版',
         ),
+      },
+    ],
+    wxPusherBot: [
+      {
+        label: 'wxPusherBotAppToken',
+        tip: intl.get('wxPusherBot的appToken'),
+        required: true,
+      },
+      {
+        label: 'wxPusherBotTopicIds',
+        tip: intl.get('wxPusherBot的topicIds'),
+        required: false,
+      },
+      {
+        label: 'wxPusherBotUids',
+        tip: intl.get('wxPusherBot的uids'),
+        required: false,
       },
     ],
     lark: [

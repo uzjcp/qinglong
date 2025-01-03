@@ -1,8 +1,9 @@
-version: 2.17.11
-changeLogLink: https://t.me/jiao_long/422
-publishTime: 2024-09-13 23:00
+version: 2.17.13
+changeLogLink: https://t.me/jiao_long/423
+publishTime: 2024-12-21 23:30
 changeLog: |
-  1. 修复无法获取设置的环境变量 PYTHONPATH 和 NODE_OPTIONS
-  2. 修复定时任务视图过多时，无法看到视图管理
-  3. 修复自定义通知 json 解析
-  4. 修复可能产生目录遍历攻击 API
+  1. 新增 wxPusher 通知
+  2. 完善 pushplus 通知
+  3. 修复任务列表下次运行时间展示
+  4. 修复本地部署设置 dataPath 后，备份目录可能错误
+  5. h5 登录增加识别鸿蒙系统

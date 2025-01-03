@@ -12,7 +12,11 @@ import { initPosition } from '../data/env';
 import { AuthDataType, SystemModel } from '../data/system';
 import SystemService from '../services/system';
 import UserService from '../services/user';
-import { writeFile } from 'fs/promises';
+import { writeFile, readFile } from 'fs/promises';
+import { safeJSONParse } from '../config/util';
+import OpenService from '../services/open';
+import { shareStore } from '../shared/store';
+import Logger from './logger';
 
 export default async () => {
   const cronService = Container.get(CronService);
@@ -20,14 +24,40 @@ export default async () => {
   const dependenceService = Container.get(DependenceService);
   const systemService = Container.get(SystemService);
   const userService = Container.get(UserService);
+  const openService = Container.get(OpenService);
 
   // 初始化增加系统配置
-  await SystemModel.upsert({ type: AuthDataType.systemConfig });
-  await SystemModel.upsert({ type: AuthDataType.notification });
+  const [systemConfig] = await SystemModel.findOrCreate({
+    where: { type: AuthDataType.systemConfig },
+  });
+  const [notifyConfig] = await SystemModel.findOrCreate({
+    where: { type: AuthDataType.notification },
+  });
+  const [authConfig] = await SystemModel.findOrCreate({
+    where: { type: AuthDataType.authConfig },
+  });
+  if (!authConfig?.info) {
+    let authInfo = {
+      username: 'admin',
+      password: 'admin',
+    };
+    try {
+      const content = await readFile(config.authConfigFile, 'utf8');
+      authInfo = safeJSONParse(content);
+    } catch (error) {
+      Logger.warn('Failed to read auth config file, using default credentials');
+    }
+    await SystemModel.upsert({
+      id: authConfig?.id,
+      info: authInfo,
+      type: AuthDataType.authConfig,
+    });
+  }
 
   // 初始化通知配置
-  const notifyConfig = await userService.getNotificationMode();
-  await writeFile(config.systemNotifyFile, JSON.stringify(notifyConfig));
+  if (notifyConfig.info) {
+    await writeFile(config.systemNotifyFile, JSON.stringify(notifyConfig.info));
+  }
 
   const installDependencies = () => {
     // 初始化时安装所有处于安装中，安装成功，安装失败的依赖
@@ -50,7 +80,6 @@ export default async () => {
   };
 
   // 初始化更新 linux/python/nodejs 镜像源配置
-  const systemConfig = await systemService.getSystemConfig();
   if (systemConfig.info?.pythonMirror) {
     systemService.updatePythonMirror({
       pythonMirror: systemConfig.info?.pythonMirror,
@@ -169,4 +198,11 @@ export default async () => {
   // 初始化保存一次ck和定时任务数据
   await cronService.autosave_crontab();
   await envService.set_envs();
+
+  const authInfo = await userService.getAuthInfo();
+  const apps = await openService.findApps();
+  await shareStore.updateAuthInfo(authInfo);
+  if (apps?.length) {
+    await shareStore.updateApps(apps);
+  }
 };

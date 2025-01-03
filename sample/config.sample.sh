@@ -117,6 +117,16 @@ export PUSH_PLUS_TOKEN=""
 ## 下方填写您的一对多推送的 "群组编码" ，（一对多推送下面->您的群组(如无则新建)->群组编码）
 ## 1. 需订阅者扫描二维码 2、如果您是创建群组所属人，也需点击“查看二维码”扫描绑定，否则不能接受群组消息推送
 export PUSH_PLUS_USER=""
+## 发送模板，支持html,txt,json,markdown,cloudMonitor,jenkins,route,pay
+export PUSH_PLUS_TEMPLATE="html"
+## 发送渠道，支持wechat,webhook,cp,mail,sms
+export PUSH_PLUS_CHANNEL="wechat"
+## webhook编码，可在pushplus公众号上扩展配置出更多渠道
+export PUSH_PLUS_WEBHOOK=""
+## 发送结果回调地址，会把推送最终结果通知到这个地址上
+export PUSH_PLUS_CALLBACKURL=""
+## 好友令牌，微信公众号渠道填写好友令牌，企业微信渠道填写企业微信用户id
+export PUSH_PLUS_TO=""
 
 ## 9. 微加机器人
 ## 官方网站：http://www.weplusbot.com
@@ -211,7 +221,26 @@ export FSKEY=""
 export QMSG_KEY=""
 export QMSG_TYPE=""
 
-## 20. 自定义通知
+## 20.Ntfy
+## 官方文档: https://docs.ntfy.sh
+## ntfy_url 填写ntfy地址,如https://ntfy.sh
+## ntfy_topic 填写ntfy的消息应用topic
+## ntfy_priority 填写推送消息优先级,默认为3
+export NTFY_URL=""
+export NTFY_TOPIC=""
+export NTFY_PRIORITY="3"
+
+## 21. wxPusher
+## 官方文档: https://wxpusher.zjiecode.com/docs/
+## 管理后台: https://wxpusher.zjiecode.com/admin/
+## wxPusher 的 appToken
+export WXPUSHER_APP_TOKEN=""
+## wxPusher 的 topicIds，多个用英文分号;分隔 topic_ids 与 uids 至少配置一个才行
+export WXPUSHER_TOPIC_IDS=""
+## wxPusher 的 用户ID，多个用英文分号;分隔 topic_ids 与 uids 至少配置一个才行
+export WXPUSHER_UIDS=""
+
+## 22. 自定义通知
 ## 自定义通知 接收回调的URL
 export WEBHOOK_URL=""
 ## WEBHOOK_BODY 和 WEBHOOK_HEADERS 多个参数时，直接换行或者使用 $'\n' 连接多行字符串，比如 export dd="line 1"$'\n'"line 2"

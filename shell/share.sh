@@ -193,12 +193,6 @@ fix_config() {
     echo
   fi
 
-  if [[ ! -s $file_auth_user ]]; then
-    echo -e "复制一份 $file_auth_sample 为 $file_auth_user\n"
-    cp -fv $file_auth_sample $file_auth_user
-    echo
-  fi
-
   if [[ ! -s $file_notify_py ]]; then
     echo -e "复制一份 $file_notify_py_sample 为 $file_notify_py\n"
     cp -fv $file_notify_py_sample $file_notify_py
@@ -340,7 +334,7 @@ format_log_time() {
   local time="$2"
 
   if [[ $is_macos -eq 1 ]]; then
-    echo $(date -j -f "$format" "$time" "+%Y-%m-%d-%H-%M-%S-%3N")
+    echo $(python3 -c 'from datetime import datetime; print(datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")[:-3])')
   else
     echo $(date -d "$time" "+%Y-%m-%d-%H-%M-%S-%3N")
   fi
@@ -453,7 +447,7 @@ run_task_before() {
 
   if [[ ${task_before:=} ]]; then
     echo -e "执行前置命令\n"
-    eval "${task_before%;}" "$@"
+    eval "${task_before%;}"
     echo -e "\n执行前置命令结束\n"
   fi
 }
@@ -463,7 +457,7 @@ run_task_after() {
 
   if [[ ${task_after:=} ]]; then
     echo -e "\n执行后置命令\n"
-    eval "${task_after%;}" "$@"
+    eval "${task_after%;}"
     echo -e "\n执行后置命令结束"
   fi
 }
@@ -473,10 +467,12 @@ handle_task_end() {
   local end_time=$(format_time "$time_format" "$etime")
   local end_timestamp=$(format_timestamp "$time_format" "$etime")
   local diff_time=$(($end_timestamp - $begin_timestamp))
+  local suffix=""
+  [[ "$MANUAL" == "true" ]] && suffix="(手动停止)"
 
   [[ "$diff_time" == 0 ]] && diff_time=1
 
-  echo -e "\n## 执行结束... $end_time  耗时 $diff_time 秒　　　　　"
+  echo -e "\n## 执行结束$suffix... $end_time  耗时 $diff_time 秒　　　　　"
   [[ $ID ]] && update_cron "\"$ID\"" "1" "" "$log_path" "$begin_timestamp" "$diff_time"
 }
 

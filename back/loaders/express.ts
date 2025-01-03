@@ -3,19 +3,15 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import routes from '../api';
 import config from '../config';
-import jwt, { UnauthorizedError } from 'express-jwt';
-import fs from 'fs/promises';
-import { getPlatform, getToken, safeJSONParse } from '../config/util';
-import Container from 'typedi';
-import OpenService from '../services/open';
+import { UnauthorizedError, expressjwt } from 'express-jwt';
+import { getPlatform, getToken } from '../config/util';
 import rewrite from 'express-urlrewrite';
-import UserService from '../services/user';
 import * as Sentry from '@sentry/node';
-import { EnvModel } from '../data/env';
 import { errors } from 'celebrate';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { serveEnv } from '../config/serverEnv';
 import Logger from './logger';
+import { IKeyvStore, shareStore } from '../shared/store';
 
 export default ({ app }: { app: Application }) => {
   app.set('trust proxy', 'loopback');
@@ -29,7 +25,7 @@ export default ({ app }: { app: Application }) => {
       target: `http://0.0.0.0:${config.publicPort}/api`,
       changeOrigin: true,
       pathRewrite: { '/api/public': '' },
-      logProvider: () => Logger,
+      logger: Logger,
     }),
   );
 
@@ -37,7 +33,7 @@ export default ({ app }: { app: Application }) => {
   app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
   app.use(
-    jwt({
+    expressjwt({
       secret: config.secret,
       algorithms: ['HS384'],
     }).unless({
@@ -58,8 +54,10 @@ export default ({ app }: { app: Application }) => {
   app.use(async (req, res, next) => {
     const headerToken = getToken(req);
     if (req.path.startsWith('/open/')) {
-      const openService = Container.get(OpenService);
-      const doc = await openService.findTokenByValue(headerToken);
+      const apps = await shareStore.getApps();
+      const doc = apps?.filter((x) =>
+        x.tokens?.find((y) => y.value === headerToken),
+      )?.[0];
       if (doc && doc.tokens && doc.tokens.length > 0) {
         const currentToken = doc.tokens.find((x) => x.value === headerToken);
         const keyMatch = req.path.match(/\/open\/([a-z]+)\/*/);
@@ -83,9 +81,9 @@ export default ({ app }: { app: Application }) => {
       return next();
     }
 
-    const data = await fs.readFile(config.authConfigFile, 'utf8');
-    if (data && headerToken) {
-      const { token = '', tokens = {} } = safeJSONParse(data);
+    const authInfo = await shareStore.getAuthInfo();
+    if (authInfo && headerToken) {
+      const { token = '', tokens = {} } = authInfo;
       if (headerToken === token || tokens[req.platform] === headerToken) {
         return next();
       }
@@ -103,8 +101,8 @@ export default ({ app }: { app: Application }) => {
     if (!['/api/user/init', '/api/user/notification/init'].includes(req.path)) {
       return next();
     }
-    const userService = Container.get(UserService);
-    const authInfo = await userService.getUserInfo();
+    const authInfo =
+      (await shareStore.getAuthInfo()) || ({} as IKeyvStore['authInfo']);
 
     let isInitialized = true;
     if (

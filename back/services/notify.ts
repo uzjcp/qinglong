@@ -35,6 +35,8 @@ export default class NotificationService {
     ['webhook', this.webhook],
     ['lark', this.lark],
     ['chronocat', this.chronocat],
+    ['ntfy', this.ntfy],
+    ['wxPusherBot', this.wxPusherBot],
   ]);
 
   private title = '';
@@ -151,14 +153,16 @@ export default class NotificationService {
 
   private async serverChan() {
     const { serverChanKey } = this.params;
-    const url = serverChanKey.startsWith('SCT')
-      ? `https://sctapi.ftqq.com/${serverChanKey}.send`
-      : `https://sc.ftqq.com/${serverChanKey}.send`;
+    const matchResult = serverChanKey.match(/^sctp(\d+)t/i);
+    const url = matchResult && matchResult[1]
+      ? `https://${matchResult[1]}.push.ft07.com/send/${serverChanKey}.send`
+      : `https://sctapi.ftqq.com/${serverChanKey}.send`;
+
     try {
       const res: any = await got
         .post(url, {
           ...this.gotOption,
-          body: `title=${this.title}&desp=${this.content}`,
+          body: `title=${encodeURIComponent(this.title)}&desp=${encodeURIComponent(this.content)}`,
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         })
         .json();
@@ -516,22 +520,29 @@ export default class NotificationService {
     } catch (error: any) {
       throw new Error(error.response ? error.response.body : error);
     }
-  }
+ }
 
   private async pushPlus() {
-    const { pushPlusToken, pushPlusUser } = this.params;
+    const { pushPlusToken, pushPlusUser, pushplusWebhook, pushPlusTemplate, pushplusChannel, pushplusCallbackUrl, pushplusTo} = this.params;
     const url = `https://www.pushplus.plus/send`;
     try {
+      let body = {
+        ...this.gotOption,
+        json: {
+          token: `${pushPlusToken}`,
+          title: `${this.title}`,
+          content: `${this.content.replace(/[\n\r]/g, '<br>')}`,
+          topic: `${pushPlusUser || ''}`,
+          template: `${pushPlusTemplate || 'html'}`,
+          channel: `${pushplusChannel || 'wechat'}`,
+          webhook: `${pushplusWebhook || ''}`,
+          callbackUrl: `${pushplusCallbackUrl || ''}`,
+          to: `${pushplusTo || ''}`
+        },
+      }
+
       const res: any = await got
-        .post(url, {
-          ...this.gotOption,
-          json: {
-            token: `${pushPlusToken}`,
-            title: `${this.title}`,
-            content: `${this.content.replace(/[\n\r]/g, '<br>')}`,
-            topic: `${pushPlusUser || ''}`,
-          },
-        })
+        .post(url, body)
         .json();
 
       if (res.code === 200) {
@@ -661,6 +672,77 @@ export default class NotificationService {
     }
   }
 
+  private async ntfy() {
+    const { ntfyUrl, ntfyTopic, ntfyPriority } = this.params;
+    // 编码函数
+    const encodeRfc2047 = (text: string, charset: string = 'UTF-8'): string => {
+      const encodedText = Buffer.from(text).toString('base64');
+      return `=?${charset}?B?${encodedText}?=`;
+  };
+    try {
+        const encodedTitle = encodeRfc2047(this.title);
+        const res: any = await got
+          .post(`${ntfyUrl || 'https://ntfy.sh'}/${ntfyTopic}`, {
+              ...this.gotOption,
+              body: `${this.content}`,
+              headers: { 'Title': encodedTitle, 'Priority': `${ntfyPriority || '3'}` },
+          });
+          if (res.statusCode === 200) {
+            return true;
+          } else {
+            throw new Error(JSON.stringify(res));
+          }
+    } catch (error: any) {
+        throw new Error(error.response ? error.response.body : error);
+    }
+  }
+
+  private async wxPusherBot() {
+    const { wxPusherBotAppToken, wxPusherBotTopicIds, wxPusherBotUids } = this.params;
+    // 处理 topicIds，将分号分隔的字符串转为数组
+    const topicIds = wxPusherBotTopicIds ? wxPusherBotTopicIds.split(';')
+      .map(id => id.trim())
+      .filter(id => id)
+      .map(id => parseInt(id)) : [];
+
+    // 处理 uids，将分号分隔的字符串转为数组  
+    const uids = wxPusherBotUids ? wxPusherBotUids.split(';')
+      .map(uid => uid.trim())
+      .filter(uid => uid) : [];
+
+    // topic_ids 和 uids 至少要有一个
+    if (!topicIds.length && !uids.length) {
+      throw new Error('wxPusher 服务的 TopicIds 和 Uids 至少配置一个才行');
+    }
+
+    const url = `https://wxpusher.zjiecode.com/api/send/message`;
+    try {
+      const res: any = await got
+        .post(url, {
+          ...this.gotOption,
+          json: {
+            appToken: wxPusherBotAppToken,
+            content: `<h1>${this.title}</h1><br/><div style='white-space: pre-wrap;'>${this.content}</div>`,
+            summary: this.title,
+            contentType: 2,
+            topicIds: topicIds,
+            uids: uids,
+            verifyPayType: 0
+          },
+        })
+        .json();
+
+      if (res.code === 1000) {
+        return true;
+      } else {
+        throw new Error(JSON.stringify(res));
+      }
+    } catch (error: any) {
+      throw new Error(error.response ? error.response.body : error);
+    }
+  }
+
+  
   private async chronocat() {
     const { chronocatURL, chronocatQQ, chronocatToken } = this.params;
     try {
