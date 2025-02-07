@@ -6,7 +6,6 @@ import config from '../config';
 import { UnauthorizedError, expressjwt } from 'express-jwt';
 import { getPlatform, getToken } from '../config/util';
 import rewrite from 'express-urlrewrite';
-import * as Sentry from '@sentry/node';
 import { errors } from 'celebrate';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { serveEnv } from '../config/serverEnv';
@@ -131,8 +130,6 @@ export default ({ app }: { app: Application }) => {
 
   app.use(errors());
 
-  Sentry.setupExpressErrorHandler(app);
-
   app.use(
     (
       err: Error & { status: number },
@@ -162,8 +159,8 @@ export default ({ app }: { app: Application }) => {
           .status(500)
           .send({
             code: 400,
-            message: `${err.name} ${err.message}`,
-            validation: err.errors,
+            message: `${err.message}`,
+            errors: err.errors,
           })
           .end();
       }
